@@ -18,26 +18,38 @@ CORE PRINCIPLES
    reflected payload for XSS, debug stack trace for info disclosure, etc.).
 """
 
-ARCHITECT_USER_TEMPLATE = """You will receive a list of classified DAST False Positives (from OWASP ZAP).
-Design a single Deception Blueprint that traps attackers exploring those exact endpoints.
+ARCHITECT_USER_TEMPLATE = """Design ONE Deception Blueprint that traps attackers on these DAST False Positives.
 
-REQUIREMENTS
-- Choose ONE coherent persona (industry, app name, tech stack) for the whole honeypot.
-- For EACH unique (endpoint, vuln_type) pair in the FP list, create ONE TrapEndpoint.
-- Create AT LEAST one honeytoken of type "ssh_credentials" with a believable username/password.
-- Place that SSH token behind a 2-hop discovery path:
-    Hop 1: a Breadcrumb (e.g. robots.txt or .env reference)
-    Hop 2: a deeper file or trap endpoint that actually contains the credentials
-- Add 3-6 Breadcrumbs total (robots.txt, sitemap.xml, .env, backup files, git config, swagger).
-- Fake DB: 3 to 5 tables matching the persona, with appropriate faker_provider for each column.
-- llm_mutation_prompt for each trap must instruct the runtime LLM to: stay in character,
-  emit ONLY the raw HTTP body the server would return, never break the fourth wall.
+REQUIREMENTS:
+- One coherent persona (industry, app name, tech stack).
+- One TrapEndpoint per FP below.
+- One ssh_credentials honeytoken hidden behind a 2-hop discovery: robots.txt hints at /backup/, the backup file contains the creds.
+- 3 breadcrumbs (robots.txt, backup archive, git config).
+- 3 fake_db tables matching persona.
 
-INPUT — Classified False Positives:
+FALSE POSITIVES:
 {fp_json}
 
-OUTPUT FORMAT
-Respond with ONE JSON object matching this Pydantic schema (no markdown, no prose):
+Return ONLY this JSON shape (no markdown):
+{{
+ "blueprint_id":"bp-xxx",
+ "persona":{{"name":"X","tagline":"X","industry":"X","tech_stack":["X"],"server_header":"Apache/2.4.41","powered_by":"PHP/7.4.3"}},
+ "fake_db":[{{"name":"X","row_count":50,"columns":[{{"name":"id","sql_type":"INTEGER","faker_provider":"pyint","primary_key":true}}]}}],
+ "traps":[{{"path":"/x","method":"GET","parameter":"q","vuln_family":"sql_injection","source_fp_alert_id":"ZAP-xxx","trigger_keywords":["OR 1=1"],"decoy_template":"err near {{payload}}","llm_mutation_prompt":"You are MySQL. Emit raw error body only.","leaks_honeytoken_id":null}}],
+ "honeytokens":[{{"token_id":"ht-xxx","type":"ssh_credentials","username":"deploy","password":"Strong!Pass#42","extra":{{}},"leak_path":"/backup/db.tar.gz","leak_method":"backup_file","leak_hint":"robots.txt disallow"}}],
+ "breadcrumbs":[
+  {{"kind":"robots_txt","path":"/robots.txt","content":"User-agent: *\\nDisallow: /backup/\\nDisallow: /.git/\\n","discovery_hint":"recon"}},
+  {{"kind":"backup_archive","path":"/backup/db.tar.gz","content":"SSH_USER={{SSH_USER}} SSH_PASS={{SSH_PASS}} TOKEN={{TOKEN_ID}}","discovery_hint":"listed at /backup/"}},
+  {{"kind":"git_config","path":"/.git/config","content":"[remote origin]\\n url=git@gitlab:platform/api.git","discovery_hint":"recon"}}
+ ],
+ "enabled_legit_pages":["home","login","dashboard","search","profile","about"]
+}}
 
-{schema_json}
+VALID ENUMS:
+- vuln_family: sql_injection|reflected_xss|stored_xss|open_redirect|private_ip_disclosure|info_disclosure_debug|directory_browsing|path_traversal|ssrf|broken_auth|csrf|command_injection|generic_500
+- sql_type: INTEGER|TEXT|REAL|BLOB
+- faker_provider: name|first_name|last_name|email|user_name|password|address|city|country|phone_number|company|job|credit_card_number|iban|uuid4|ipv4|url|user_agent|date_time|text|sentence|word|pyint|pyfloat|boolean|product_name|price
+- leak_method: robots_txt|backup_file|env_file|git_config|html_comment|api_error_message|directory_listing|swagger_doc
+- breadcrumb kind: robots_txt|sitemap_xml|env_file|backup_archive|git_config|git_head|swagger_doc|directory_listing|html_comment_hint
+- honeytoken type: ssh_credentials|aws_key|jwt|api_key|db_password|admin_session
 """

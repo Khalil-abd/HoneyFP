@@ -9,10 +9,12 @@ import logging
 import mimetypes
 from pathlib import Path
 
-from flask import Flask, Response, g
+from flask import Flask, Response, g, request
 
 from honeypot.architect.schema import DeceptionBlueprint
 from honeypot.config import DECOY_DIR
+from honeypot.generator.honeytokens import find_token_in_text
+from honeypot.runtime.bridge_ssh import signal_token_leaked
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,17 @@ def register_decoy_routes(app: Flask, blueprint: DeceptionBlueprint) -> set[str]
                     return Response(f"# breadcrumb file missing: {web_path}\n", status=404,
                                     mimetype="text/plain")
                 content = p.read_text(encoding="utf-8", errors="replace")
+                leaked = find_token_in_text(content, blueprint.honeytokens)
+                if leaked:
+                    g.honeytoken_id = leaked.token_id
+                    sess = g.get("session")
+                    signal_token_leaked(
+                        token_id=leaked.token_id,
+                        attacker_ip=sess.ip if sess else (request.remote_addr or "unknown"),
+                        fingerprint=sess.fingerprint if sess else "unknown",
+                        endpoint=web_path,
+                        raw_response_excerpt=content,
+                    )
                 return Response(content, status=200, mimetype=_guess_mime(web_path))
             view.__name__ = f"decoy_{abs(hash(web_path))}"
             return view

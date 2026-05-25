@@ -57,7 +57,7 @@ def create_app() -> Flask:
 
         session_tracker.record_request(sess, path, is_trap, is_breadcrumb, honeytoken_id)
         attacker_profiler.update_profile(sess)
-        delay_ms = tarpit.apply(sess) if (is_trap or is_breadcrumb) else 0
+        delay_ms = tarpit.apply(sess)
 
         response.headers["Server"] = blueprint.persona.server_header
         response.headers["X-Powered-By"] = blueprint.persona.powered_by
