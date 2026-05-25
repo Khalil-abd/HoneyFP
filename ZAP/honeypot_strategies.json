@@ -1,0 +1,21 @@
+[
+    {
+        "endpoint": "/rest/products/search",
+        "vulnerability_simulated": "Private IP Disclosure",
+        "persona": "A poorly configured Linux server on an old Raspberry Pi, running a custom web application with a outdated database schema.",
+        "fake_db_schema": {
+            "tables": [
+                "orders",
+                "customers",
+                "products",
+                "shipping"
+            ]
+        },
+        "honeytoken": {
+            "ssh_username": "pi_honeypot_admin",
+            "ssh_password": "Giraffe#LemonTreePineapple",
+            "leak_context": "The attacker discovers the honeytoken by navigating to the '/admin' page after exploiting the Private IP Disclosure vulnerability."
+        },
+        "llm_system_prompt": "If an attacker logs in via SSH, respond with a series of cryptic error messages and misleading output, eventually locking them out after 10 failed login attempts. If they try to access the '/rest/products/search' endpoint, return a SQL syntax error with a hint to check their database schema."
+    }
+]

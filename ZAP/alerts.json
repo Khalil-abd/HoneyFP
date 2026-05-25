@@ -1,0 +1,24 @@
+[
+    {
+        "alert_id": "ZAP-40018",
+        "alert_type": "Injection SQL",
+        "endpoint": "http://localhost:3000/rest/products/search?q=%27%28",
+        "parameter": "q",
+        "evidence": "HTTP/1.1 500 Internal Server Error",
+        "description": "SQL injection may be possible.",
+        "classification": "false_positive",
+        "confidence": 0.9,
+        "source": "OWASP ZAP DAST"
+    },
+    {
+        "alert_id": "ZAP-2",
+        "alert_type": "Private IP Disclosure",
+        "endpoint": "http://localhost:3000/rest/admin/application-configuration",
+        "parameter": "",
+        "evidence": "192.168.99.100:3000",
+        "description": "A private IP (such as 10.x.x.x, 172.x.x.x, 192.168.x.x) or an Amazon EC2 private hostname (for example, ip-10-0-56-78) has been found in the HTTP response body. This information might be helpful for further attacks targeting internal systems.",
+        "classification": "false_positive",
+        "confidence": 0.75,
+        "source": "OWASP ZAP DAST"
+    }
+]

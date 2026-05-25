@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}API Docs · {{ persona.name }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Internal API reference</h1>
+  <p>Auto-generated from OpenAPI 3.0 spec. Authentication required for write endpoints.</p>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      {% for ep in endpoints %}
+        <tr><td><span class="badge">{{ ep.method }}</span></td><td><code>{{ ep.path }}</code></td><td>{{ ep.description }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="color:#6b7785; font-size:13px">Need a deploy key? Ops uses the legacy bundle archived under <code>/backup/</code>.</p>
+</div>
+{% endblock %}

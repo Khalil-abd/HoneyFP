@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ persona.name }}</h1>
+  <p style="font-size:17px; color:#5b6675;">{{ persona.tagline }}</p>
+  <p><span class="badge">{{ persona.industry }}</span></p>
+</div>
+
+<div class="card">
+  <h2>Featured</h2>
+  <div class="grid">
+    {% for p in products %}
+      <div class="tile">
+        <h3>{{ p.name }}</h3>
+        <p>SKU {{ p.sku[:8] }} · ${{ p.price }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

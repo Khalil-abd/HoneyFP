@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · {{ persona.name }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Welcome back, {{ user or "admin" }}</h1>
+  <div class="grid">
+    <div class="tile"><h3>{{ stats.orders }}</h3><p>Orders this month</p></div>
+    <div class="tile"><h3>${{ stats.revenue }}</h3><p>Revenue</p></div>
+    <div class="tile"><h3>{{ stats.users }}</h3><p>Active users</p></div>
+    <div class="tile"><h3>{{ stats.products }}</h3><p>Products in catalog</p></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Recent orders</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Customer</th><th>Total</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for o in orders %}
+        <tr><td>#{{ o.id }}</td><td>{{ o.customer_email }}</td><td>${{ o.total }}</td><td>{{ o.created_at }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>About {{ persona.name }}</h1>
+  <p>{{ persona.tagline }}</p>
+  <p>We run a {{ persona.industry }} platform on the following stack:</p>
+  <ul>{% for t in persona.tech_stack %}<li>{{ t }}</li>{% endfor %}</ul>
+</div>
+{% endblock %}

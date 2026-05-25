@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Search · {{ persona.name }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Product search</h1>
+  <form method="get" action="/search">
+    <input name="q" value="{{ q or '' }}" placeholder="Search products..." style="width:60%">
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+<div class="card">
+  {% if results %}
+    <table>
+      <thead><tr><th>Name</th><th>SKU</th><th>Price</th></tr></thead>
+      <tbody>
+        {% for r in results %}
+          <tr><td>{{ r.name }}</td><td>{{ r.sku[:8] }}</td><td>${{ r.price }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#6b7785">No results yet.</p>
+  {% endif %}
+</div>
+{% endblock %}
