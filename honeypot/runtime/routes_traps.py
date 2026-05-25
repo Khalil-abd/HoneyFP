@@ -1,14 +1,17 @@
 """Trap routes: one Flask route per TrapEndpoint in the blueprint.
 
-Each trap calls the LLM responder to mutate the body of a fake vulnerable response.
-If the response surfaces a honeytoken, we signal the SSH bridge.
+When a request lands on a trap path:
+- If the request looks benign (no params, no malicious keywords, normal UA),
+  serve a realistic page so a casual visitor does not see a broken site.
+- If the request carries a malicious payload, fire the LLM responder to mutate
+  a fake vulnerable response, detect honeytoken leaks, and signal the SSH bridge.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from flask import Flask, Response, g, request
+from flask import Flask, Response, g, render_template, request
 
 from honeypot.architect.schema import DeceptionBlueprint, TrapEndpoint
 from honeypot.generator.honeytokens import find_token_in_text
@@ -16,6 +19,22 @@ from honeypot.runtime.bridge_ssh import signal_token_leaked
 from honeypot.runtime.responder import mutate_response
 
 logger = logging.getLogger(__name__)
+
+SUSPICIOUS_TOKENS = (
+    "'", '"', "<script", "<svg", "javascript:", "onerror=",
+    "union ", "select ", " or 1=1", " or '1'='1",
+    "../", "..%2f", "%27", "%3c", "%22",
+    "0x", "/etc/passwd", "/proc/self", "${", "$(",
+    " sleep(", " benchmark(", ";--", "||", "&&",
+)
+
+LEGIT_FALLBACK_TEMPLATES = {
+    "/profile": "profile.html",
+    "/search": "search.html",
+    "/dashboard": "dashboard.html",
+    "/login": "login.html",
+    "/about": "about.html",
+}
 
 
 def _build_payload_string() -> str:
@@ -28,12 +47,59 @@ def _build_payload_string() -> str:
     return " | ".join(pieces) or "(no payload)"
 
 
+def _looks_malicious(payload: str, trap: TrapEndpoint) -> bool:
+    if payload == "(no payload)":
+        return False
+    p = payload.lower()
+    for kw in trap.trigger_keywords:
+        if kw and kw.lower() in p:
+            return True
+    return any(s in p for s in SUSPICIOUS_TOKENS)
+
+
+def _legit_fallback(trap: TrapEndpoint, blueprint: DeceptionBlueprint) -> Response | None:
+    """Return a normal-looking response when there is no attack payload.
+
+    For paths shared with a legit page (/profile, /search, /dashboard, ...) we
+    render the matching template. For API paths we return a generic 401 JSON.
+    For everything else we return a plausible empty 200.
+    """
+    persona = blueprint.persona
+    pages = blueprint.enabled_legit_pages
+
+    tpl = LEGIT_FALLBACK_TEMPLATES.get(trap.path)
+    if tpl:
+        ctx = {"persona": persona, "pages": pages}
+        if tpl == "profile.html":
+            ctx["user"] = {"username": "guest", "email": "guest@example.com"}
+        if tpl == "search.html":
+            ctx.update(q=request.args.get("q", ""), results=[])
+        if tpl == "dashboard.html":
+            ctx.update(user="guest", orders=[], stats={"orders": 0, "revenue": 0,
+                                                       "users": 0, "products": 0})
+        if tpl == "login.html":
+            ctx["error"] = None
+        return Response(render_template(tpl, **ctx), status=200, mimetype="text/html")
+
+    if trap.path.startswith("/api/"):
+        return Response('{"error":"unauthorized"}', status=401, mimetype="application/json")
+
+    return Response(
+        f"<html><body><h1>{persona.name}</h1><p>Nothing here.</p></body></html>",
+        status=200, mimetype="text/html",
+    )
+
+
 def _trap_view(trap: TrapEndpoint, blueprint: DeceptionBlueprint) -> Response:
-    g.is_trap = True
+    payload = _build_payload_string()
     sess = g.get("session")
     profile = sess.profile if sess else "manual"
+    is_hostile_session = profile not in {"casual", "manual", "unknown"}
 
-    payload = _build_payload_string()
+    if not _looks_malicious(payload, trap) and not is_hostile_session:
+        return _legit_fallback(trap, blueprint) or Response("", status=200)
+
+    g.is_trap = True
     body = mutate_response(trap, payload, profile)
 
     leaked = find_token_in_text(body, blueprint.honeytokens)
@@ -58,7 +124,8 @@ def _trap_view(trap: TrapEndpoint, blueprint: DeceptionBlueprint) -> Response:
         )
 
     status = 500 if trap.vuln_family in {"sql_injection", "info_disclosure_debug", "generic_500"} else 200
-    return Response(body, status=status, mimetype="text/plain")
+    mime = "application/json" if body.lstrip().startswith("{") else "text/plain"
+    return Response(body, status=status, mimetype=mime)
 
 
 def register_trap_routes(app: Flask, blueprint: DeceptionBlueprint) -> set[str]:

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HoneyFP · Deception Strategies</title>
+  <style>
+    body { font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; background: #0f1419; color: #e6e6e6; }
+    header { background: #1a1f2b; padding: 16px 28px; border-bottom: 2px solid #2d6cdf; display:flex; justify-content:space-between; align-items:center; }
+    header h1 { margin: 0; font-size: 20px; }
+    header .meta { font-size: 12px; color: #8995a8; }
+    main { max-width: 1300px; margin: 28px auto; padding: 0 24px; }
+    .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 28px; }
+    .kpi { background: #1a1f2b; padding: 14px 18px; border-radius: 8px; border: 1px solid #2a3142; }
+    .kpi .v { font-size: 26px; font-weight: 700; color: #2d6cdf; }
+    .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #8995a8; }
+    h2 { color: #2d6cdf; border-bottom: 1px solid #2a3142; padding-bottom: 6px; margin-top: 36px; }
+    .trap { background: #1a1f2b; border: 1px solid #2a3142; border-left: 4px solid #2d6cdf; border-radius: 8px; padding: 18px 22px; margin-bottom: 16px; }
+    .trap.xss   { border-left-color: #e67e22; }
+    .trap.sqli  { border-left-color: #e74c3c; }
+    .trap.info  { border-left-color: #f1c40f; }
+    .trap.ip    { border-left-color: #1abc9c; }
+    .trap.other { border-left-color: #9b59b6; }
+    .row { display: grid; grid-template-columns: 280px 1fr; gap: 10px 24px; margin-top: 14px; }
+    .row .lbl { color: #8995a8; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .row .val { color: #e6e6e6; }
+    code { background: #0f1419; color: #ffc107; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+    .tag { display:inline-block; padding: 2px 8px; border-radius: 12px; background: #2d6cdf; color: #fff; font-size: 11px; }
+    .tag.fp { background: #444c5c; }
+    .arrow { color: #2d6cdf; font-size: 22px; margin: 6px 12px; }
+    .hop { background: #0f1419; border-left: 3px solid #2d6cdf; padding: 10px 14px; margin: 8px 0; border-radius: 0 6px 6px 0; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #2a3142; text-align: left; font-size: 13px; }
+    th { color: #8995a8; font-weight: 500; }
+    pre { background: #0f1419; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; color: #a3b1c2; margin: 4px 0; }
+    .warning { background: #3d2828; border: 1px solid #c0392b; padding: 12px 16px; border-radius: 6px; margin: 18px 0; color: #f5b7b1; font-size: 13px; }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>HoneyFP · Deception Strategies</h1>
+    <div class="meta">Blueprint <code>{{ bp.blueprint_id }}</code> generated {{ bp.generated_at }}</div>
+  </div>
+  <div class="meta">Internal · localhost only</div>
+</header>
+<main>
+  <div class="warning">
+    This page is the analyst view of the deception. Attackers must NEVER see it.
+    Access is restricted to <code>127.0.0.1</code> in <code>routes_admin.py</code>.
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">{{ bp.traps|length }}</div><div class="l">Traps</div></div>
+    <div class="kpi"><div class="v">{{ bp.honeytokens|length }}</div><div class="l">Honeytokens</div></div>
+    <div class="kpi"><div class="v">{{ bp.breadcrumbs|length }}</div><div class="l">Breadcrumbs</div></div>
+    <div class="kpi"><div class="v">{{ fp_count }}</div><div class="l">FP alerts (source)</div></div>
+    <div class="kpi"><div class="v">{{ bp.fake_db|length }}</div><div class="l">Fake tables</div></div>
+  </div>
+
+  <h2>Persona</h2>
+  <div class="trap other">
+    <div class="row">
+      <div class="lbl">name</div><div class="val">{{ bp.persona.name }}</div>
+      <div class="lbl">industry</div><div class="val">{{ bp.persona.industry }}</div>
+      <div class="lbl">tagline</div><div class="val">{{ bp.persona.tagline }}</div>
+      <div class="lbl">tech stack</div><div class="val">{{ bp.persona.tech_stack|join(', ') }}</div>
+      <div class="lbl">server header (spoofed)</div><div class="val"><code>{{ bp.persona.server_header }}</code></div>
+      <div class="lbl">x-powered-by (spoofed)</div><div class="val"><code>{{ bp.persona.powered_by }}</code></div>
+    </div>
+  </div>
+
+  <h2>Trap endpoints — FP -> Strategy lineage</h2>
+  {% for t in lineage %}
+    {% set cls = 'xss' if 'xss' in t.trap.vuln_family
+                  else 'sqli' if 'sql_injection' in t.trap.vuln_family
+                  else 'info' if 'info_disclosure' in t.trap.vuln_family
+                  else 'ip' if 'ip_disclosure' in t.trap.vuln_family
+                  else 'other' %}
+    <div class="trap {{ cls }}">
+      <div style="display:flex; justify-content:space-between; align-items:baseline">
+        <h3 style="margin:0">
+          <span class="tag">{{ t.trap.method }}</span> <code>{{ t.trap.path }}</code>
+          <span class="arrow">->{{ '' }}</span>
+          <span class="tag">{{ t.trap.vuln_family }}</span>
+        </h3>
+        <span class="meta" style="color:#8995a8; font-size:12px">trap #{{ loop.index }}</span>
+      </div>
+
+      <div class="row">
+        <div class="lbl">Source FP <span class="tag fp">ZAP</span></div>
+        <div class="val">
+          alert_id <code>{{ t.fp.alert_id }}</code><br>
+          type     : {{ t.fp.alert_type }}<br>
+          endpoint : <code>{{ t.fp.endpoint }}</code><br>
+          parameter: <code>{{ t.fp.parameter or '(none)' }}</code><br>
+          evidence : <code>{{ t.fp.evidence }}</code><br>
+          risk/conf: {{ t.fp.risk_level }}/{{ t.fp.confidence_level }} —
+          classifier: {{ t.fp.source }} -> <strong>{{ t.fp.classification }}</strong>
+        </div>
+
+        <div class="lbl">Strategy designed by Architect</div>
+        <div class="val">
+          trigger_keywords:
+          {% for k in t.trap.trigger_keywords %}<code>{{ k }}</code> {% endfor %}
+          {% if not t.trap.trigger_keywords %}<em>(none)</em>{% endif %}
+          <br><br>
+          decoy fallback (used if Ollama/Groq unreachable):
+          <pre>{{ t.trap.decoy_template }}</pre>
+          runtime LLM mutation prompt:
+          <pre>{{ t.trap.llm_mutation_prompt }}</pre>
+        </div>
+
+        {% if t.trap.leaks_honeytoken_id %}
+        <div class="lbl">Links to honeytoken</div>
+        <div class="val"><code>{{ t.trap.leaks_honeytoken_id }}</code></div>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <h2>Honeytokens (decoy credentials with embedded tracking IDs)</h2>
+  {% for h in bp.honeytokens %}
+    <div class="trap other">
+      <h3 style="margin:0"><span class="tag">{{ h.type }}</span> <code>{{ h.token_id }}</code></h3>
+      <div class="row">
+        <div class="lbl">credentials</div>
+        <div class="val">user=<code>{{ h.username }}</code> pass=<code>{{ h.password }}</code></div>
+        <div class="lbl">discoverable at</div>
+        <div class="val"><code>{{ h.leak_path }}</code> via <em>{{ h.leak_method }}</em></div>
+        <div class="lbl">how attacker finds it</div>
+        <div class="val">{{ h.leak_hint }}</div>
+      </div>
+    </div>
+  {% endfor %}
+
+  <h2>Discovery breadcrumbs (multi-hop fuzzing path)</h2>
+  <p style="color:#8995a8; font-size:13px">
+    A real attacker reaches the SSH credentials in 2 hops:
+  </p>
+  {% for c in bp.breadcrumbs %}
+    <div class="hop"><strong>{{ c.kind }}</strong> served at <code>{{ c.path }}</code> · <em>{{ c.discovery_hint }}</em>
+      <pre>{{ c.content }}</pre>
+    </div>
+  {% endfor %}
+
+  <h2>Fake database</h2>
+  <table>
+    <thead><tr><th>table</th><th>columns</th><th>row count</th></tr></thead>
+    <tbody>
+      {% for t in bp.fake_db %}
+      <tr>
+        <td><code>{{ t.name }}</code></td>
+        <td>{% for c in t.columns %}<code>{{ c.name }}</code> ({{ c.sql_type }}, {{ c.faker_provider }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
+        <td>{{ t.row_count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

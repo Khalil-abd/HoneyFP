@@ -28,6 +28,7 @@ def create_app() -> Flask:
     app.secret_key = settings.secret_key
     app.config["BLUEPRINT"] = blueprint
 
+    from honeypot.runtime.routes_admin import register_admin_routes
     from honeypot.runtime.routes_app import register_app_routes
     from honeypot.runtime.routes_decoys import register_decoy_routes
     from honeypot.runtime.routes_traps import register_trap_routes
@@ -35,6 +36,7 @@ def create_app() -> Flask:
     trap_paths = register_trap_routes(app, blueprint)
     decoy_paths = register_decoy_routes(app, blueprint)
     register_app_routes(app, blueprint, reserved_paths=trap_paths | decoy_paths)
+    register_admin_routes(app, blueprint)
 
     @app.before_request
     def _before():

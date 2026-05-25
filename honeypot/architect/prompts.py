@@ -25,7 +25,10 @@ REQUIREMENTS:
 - One TrapEndpoint per FP below.
 - One ssh_credentials honeytoken hidden behind a 2-hop discovery: robots.txt hints at /backup/, the backup file contains the creds.
 - 3 breadcrumbs (robots.txt, backup archive, git config).
-- 3 fake_db tables matching persona.
+- 3 fake_db tables. Table names MUST be plural English nouns and chosen
+  from this list when applicable: "products", "orders", "users",
+  "customers", "transactions", "sessions". This is required so the UI
+  renders correctly.
 
 FALSE POSITIVES:
 {fp_json}
